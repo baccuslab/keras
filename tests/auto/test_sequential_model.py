@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 np.random.seed(1337)
 
-from keras.models import Sequential
+from keras.models import Sequential, model_from_json, model_from_yaml
 from keras.layers.core import Dense, Activation, Merge
 from keras.utils import np_utils
 from keras.utils.test_utils import get_test_data
@@ -19,11 +19,12 @@ train_samples = 5000
 test_samples = 1000
 
 (X_train, y_train), (X_test, y_test) = get_test_data(nb_train=train_samples, nb_test=test_samples, input_shape=(input_dim,),
-    classification=True, nb_class=4)
+                                                     classification=True, nb_class=4)
 y_test = np_utils.to_categorical(y_test)
 y_train = np_utils.to_categorical(y_train)
 print(X_train.shape)
 print(y_train.shape)
+
 
 class TestSequential(unittest.TestCase):
     def test_sequential(self):
@@ -67,6 +68,13 @@ class TestSequential(unittest.TestCase):
         print(nloss)
         assert(loss == nloss)
 
+        # test json serialization
+        json_data = model.to_json()
+        model = model_from_json(json_data)
+
+        # test yaml serialization
+        yaml_data = model.to_yaml()
+        model = model_from_yaml(yaml_data)
 
     def test_merge_sum(self):
         print('Test merge: sum')
@@ -120,7 +128,6 @@ class TestSequential(unittest.TestCase):
         nloss = model.evaluate([X_train, X_train], y_train, verbose=0)
         print(nloss)
         assert(loss == nloss)
-
 
     def test_merge_concat(self):
         print('Test merge: concat')
@@ -179,7 +186,6 @@ class TestSequential(unittest.TestCase):
         print(nloss)
         assert(loss == nloss)
 
-
     def test_merge_recursivity(self):
         print('Test merge recursivity')
 
@@ -231,7 +237,6 @@ class TestSequential(unittest.TestCase):
         print(nloss)
         assert(loss == nloss)
 
-
     def test_merge_overlap(self):
         print('Test merge overlap')
         left = Sequential()
@@ -271,6 +276,26 @@ class TestSequential(unittest.TestCase):
         print(nloss)
         assert(loss == nloss)
 
+    def test_count_params(self):
+        print('test count params')
+        nb_units = 100
+        nb_classes = 2
+
+        n = nb_units * nb_units + nb_units
+        n += nb_units * nb_units + nb_units
+        n += nb_units * nb_classes + nb_classes
+
+        model = Sequential()
+        model.add(Dense(nb_units, nb_units))
+        model.add(Dense(nb_units, nb_units))
+        model.add(Dense(nb_units, nb_classes))
+        model.add(Activation('softmax'))
+
+        self.assertEqual(n, model.count_params())
+
+        model.compile('sgd', 'binary_crossentropy')
+
+        self.assertEqual(n, model.count_params())
 
 
 if __name__ == '__main__':
