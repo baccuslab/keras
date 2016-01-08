@@ -51,6 +51,9 @@ def placeholder(shape=None, ndim=None, dtype=_FLOATX, name=None):
         return T.tensor3(name=name, dtype=dtype)
     elif ndim == 4:
         return T.tensor4(name=name, dtype=dtype)
+    elif ndim == 5:
+        dtensor5 = T.TensorType('float32', (False,)*5)
+        return dtensor5()
     else:
         raise Exception('ndim too large: ' + str(ndim))
 
@@ -273,6 +276,31 @@ def flatten(x):
     x = T.reshape(x, (x.shape[0], T.prod(x.shape) // x.shape[0]))
     return x
 
+def tdflatten(x):
+    '''Turn an n-D tensor into a 3D tensor where
+    the first two dimensions are conserved.
+    '''
+    size = T.prod(x[0].shape) // x[0].shape[0]
+    nshape = (x.shape[0], x.shape[1], size)
+    y = T.reshape(x, nshape)
+    return y
+
+def collapsetime(x):
+    '''Collapse first two dimensions consisting of 
+    num_samples and num_timesteps of 5D tensor to a 4D tensor 
+    with its first dimension being num_samples * num_timesteps.
+    '''
+    newshape = (x.shape[0]*x.shape[1], x.shape[2], x.shape[3], x.shape[4])
+    return T.reshape(x, newshape)
+
+def expandtime(x, y):
+    '''Reshape 4D tensor y to a 5D tensor with the original
+    num_samples and num_timesteps dimensions of 
+    5D tensor x. Inverse operation as collapsetime(x).
+    '''
+    newshape = (x.shape[0], x.shape[1], y.shape[1], y.shape[2], y.shape[3])
+    z = T.reshape(y, newshape)
+    return z
 
 def expand_dims(x, dim=-1):
     '''Add a 1-sized dimension at index "dim".
@@ -570,9 +598,9 @@ def conv2d(x, kernel, strides=(1, 1), border_mode='valid', dim_ordering='th',
 
         conv_out = T.nnet.conv.conv2d(x, kernel,
                                       border_mode=th_border_mode,
-                                      subsample=strides,
-                                      image_shape=image_shape,
-                                      filter_shape=filter_shape)
+                                      subsample=strides)
+#                                      image_shape=image_shape,
+#                                      filter_shape=filter_shape)
         if border_mode == 'same':
             shift_x = (kernel.shape[2] - 1) // 2
             shift_y = (kernel.shape[3] - 1) // 2

@@ -226,7 +226,6 @@ def concatenate(tensors, axis=-1):
 def reshape(x, shape):
     return tf.reshape(x, shape)
 
-
 def permute_dimensions(x, pattern):
     '''Transpose dimensions.
 
@@ -271,6 +270,30 @@ def flatten(x):
     x = tf.reshape(x, [-1, np.prod(x.get_shape()[1:].as_list())])
     return x
 
+def tdflatten(x):
+    '''Turn an n-D tensor into a 3D tensor where
+    the first two dimensions are conserved.
+    '''
+    x = tf.reshape(x, [-1, np.prod(x.get_shape()[2:].as_list())])
+    return x
+
+def collapsetime(x):
+    '''Collapse first two dimensions consisting of 
+    num_samples and num_timesteps of 5D tensor to a 4D tensor 
+    with its first dimension being num_samples * num_timesteps.
+    '''
+    newshape = [np.prod(x.get_shape()[0:2].as_list()),] + x.get_shape()[2:].as_list()
+    x = tf.reshape(x, newshape)
+    return x
+
+def expandtime(x, y):
+    '''Reshape 4D tensor y to a 5D tensor with the original
+    num_samples and num_timesteps dimensions of 
+    5D tensor x. Inverse operation as collapsetime(x).
+    '''
+    newshape = x.get_shape()[0:2].as_list() + y.get_shape()[1:].as_list()
+    z = tf.reshape(y, newshape)
+    return z
 
 def expand_dims(x, dim=-1):
     '''Add a 1-sized dimension at index "dim".
