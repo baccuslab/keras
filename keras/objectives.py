@@ -47,6 +47,11 @@ def binary_crossentropy(y_true, y_pred):
 def poisson_loss(y_true, y_pred):
     return K.mean(y_pred - y_true * K.log(y_pred + K.epsilon()), axis=-1)
 
+def sub_poisson_loss(y_true, y_pred):
+    poiss = poisson_loss(y_true, y_pred)
+    mse = mean_squared_error(y_true, y_pred)
+    return poiss + 0.05*mse
+
 # aliases
 mse = MSE = mean_squared_error
 rmse = RMSE = root_mean_squared_error
