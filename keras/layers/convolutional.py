@@ -109,7 +109,7 @@ class Convolution1D(Layer):
         self.W_shape = (self.nb_filter, input_dim, self.filter_length, 1)
         self.W = self.init(self.W_shape)
         self.b = K.zeros((self.nb_filter,))
-        self.params = [self.W, self.b]
+        self.trainable_weights = [self.W, self.b]
         self.regularizers = []
 
         if self.W_regularizer:
@@ -184,9 +184,10 @@ class Convolution2D(Layer):
 
     # Output shape
         4D tensor with shape:
-        `(samples, nb_filter, nb_row, nb_col)` if dim_ordering='th'
+        `(samples, nb_filter, new_rows, new_cols)` if dim_ordering='th'
         or 4D tensor with shape:
-        `(samples, nb_row, nb_col, nb_filter)` if dim_ordering='tf'.
+        `(samples, new_rows, new_cols, nb_filter)` if dim_ordering='tf'.
+        `rows` and `cols` values might have changed due to padding.
 
 
     # Arguments
@@ -264,7 +265,7 @@ class Convolution2D(Layer):
             raise Exception('Invalid dim_ordering: ' + self.dim_ordering)
         self.W = self.init(self.W_shape)
         self.b = K.zeros((self.nb_filter,))
-        self.params = [self.W, self.b]
+        self.trainable_weights = [self.W, self.b]
         self.regularizers = []
 
         if self.W_regularizer:
@@ -508,7 +509,7 @@ class MaxPooling1D(_Pooling1D):
 class AveragePooling1D(_Pooling1D):
     '''Average pooling for temporal data.
 
-        # Input shape
+    # Input shape
         3D tensor with shape: `(samples, steps, features)`.
 
     # Output shape
@@ -694,7 +695,7 @@ class AveragePooling2D(_Pooling2D):
 
 
 class UpSampling1D(Layer):
-    '''Repeats each temporal step `length` times along the time axis.
+    '''Repeat each temporal step `length` times along the time axis.
 
     # Input shape
         3D tensor with shape: `(samples, steps, features)`.
@@ -730,7 +731,7 @@ class UpSampling1D(Layer):
 
 
 class UpSampling2D(Layer):
-    '''Repeats the rows and columns of the data
+    '''Repeat the rows and columns of the data
     by size[0] and size[1] respectively.
 
     # Input shape
@@ -778,15 +779,8 @@ class UpSampling2D(Layer):
 
     def get_output(self, train=False):
         X = self.get_input(train)
-        if self.dim_ordering == 'th':
-            output = K.repeat_elements(X, self.size[0], axis=2)
-            output = K.repeat_elements(output, self.size[1], axis=3)
-        elif self.dim_ordering == 'tf':
-            output = K.repeat_elements(X, self.size[0], axis=1)
-            output = K.repeat_elements(output, self.size[1], axis=2)
-        else:
-            raise Exception('Invalid dim_ordering: ' + self.dim_ordering)
-        return output
+        return K.resize_images(X, self.size[0], self.size[1],
+                               self.dim_ordering)
 
     def get_config(self):
         config = {'name': self.__class__.__name__,

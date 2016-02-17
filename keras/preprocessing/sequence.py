@@ -35,7 +35,15 @@ def pad_sequences(sequences, maxlen=None, dtype='int32', padding='pre', truncati
     if maxlen is None:
         maxlen = np.max(lengths)
 
-    x = (np.ones((nb_samples, maxlen)) * value).astype(dtype)
+    # take the sample shape from the first non empty sequence
+    # checking for consistency in the main loop below.
+    sample_shape = tuple()
+    for s in sequences:
+        if len(s) > 0:
+            sample_shape = np.asarray(s).shape[1:]
+            break
+
+    x = (np.ones((nb_samples, maxlen) + sample_shape) * value).astype(dtype)
     for idx, s in enumerate(sequences):
         if len(s) == 0:
             continue # empty list was found
@@ -45,6 +53,12 @@ def pad_sequences(sequences, maxlen=None, dtype='int32', padding='pre', truncati
             trunc = s[:maxlen]
         else:
             raise ValueError("Truncating type '%s' not understood" % padding)
+
+        # check `trunc` has expected shape
+        trunc = np.asarray(trunc, dtype=dtype)
+        if trunc.shape[1:] != sample_shape:
+            raise ValueError("Shape of sample %s of sequence at position %s is different from expected shape %s"
+                             % (trunc.shape[1:], idx, sample_shape))
 
         if padding == 'post':
             x[idx, :len(trunc)] = trunc
@@ -135,7 +149,7 @@ def skipgrams(sequence, vocabulary_size,
         words = [c[0] for c in couples]
         random.shuffle(words)
 
-        couples += [[words[i%len(words)], random.randint(1, vocabulary_size-1)] for i in range(nb_negative_samples)]
+        couples += [[words[i %len(words)], random.randint(1, vocabulary_size-1)] for i in range(nb_negative_samples)]
         if categorical:
             labels += [[1,0]]*nb_negative_samples
         else:

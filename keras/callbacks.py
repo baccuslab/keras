@@ -8,6 +8,7 @@ import warnings
 
 from collections import deque
 from .utils.generic_utils import Progbar
+from keras import backend as K
 
 
 class CallbackList(object):
@@ -43,9 +44,11 @@ class CallbackList(object):
             callback.on_batch_begin(batch, logs)
         self._delta_ts_batch_begin.append(time.time() - t_before_callbacks)
         delta_t_median = np.median(self._delta_ts_batch_begin)
-        if self._delta_t_batch > 0. and delta_t_median > 0.95 * self._delta_t_batch and delta_t_median > 0.1:
+        if self._delta_t_batch > 0. and delta_t_median > 0.95 * \
+           self._delta_t_batch and delta_t_median > 0.1:
             warnings.warn('Method on_batch_begin() is slow compared '
-                          'to the batch update (%f). Check your callbacks.' % delta_t_median)
+                          'to the batch update (%f). Check your callbacks.'
+                          % delta_t_median)
         self._t_enter_batch = time.time()
 
     def on_batch_end(self, batch, logs={}):
@@ -57,9 +60,11 @@ class CallbackList(object):
             callback.on_batch_end(batch, logs)
         self._delta_ts_batch_end.append(time.time() - t_before_callbacks)
         delta_t_median = np.median(self._delta_ts_batch_end)
-        if self._delta_t_batch > 0. and delta_t_median > 0.95 * self._delta_t_batch and delta_t_median > 0.1:
+        if self._delta_t_batch > 0. and delta_t_median > 0.95 * \
+           self._delta_t_batch and delta_t_median > 0.1:
             warnings.warn('Method on_batch_end() is slow compared '
-                          'to the batch update (%f). Check your callbacks.' % delta_t_median)
+                          'to the batch update (%f). Check your callbacks.'
+                          % delta_t_median)
 
     def on_train_begin(self, logs={}):
         for callback in self.callbacks:
@@ -87,7 +92,8 @@ class Callback(object):
     will include the following quantities in the `logs` that
     it passes to its callbacks:
 
-        on_epoch_end: logs optionally include `val_loss`
+        on_epoch_end: logs include `acc` and `loss`, and
+            optionally include `val_loss`
             (if validation is enabled in `fit`), and `val_acc`
             (if validation and accuracy monitoring are enabled).
         on_batch_begin: logs include `size`,
@@ -124,11 +130,35 @@ class Callback(object):
 
 
 class BaseLogger(Callback):
-    '''Callback that prints events to the standard output.
+    '''Callback that accumulates epoch averages of
+    the metrics being monitored.
 
     This callback is automatically applied to
-    every Keras model (it is the basis of the verbosity modes
-    in models).
+    every Keras model.
+    '''
+    def on_epoch_begin(self, epoch, logs={}):
+        self.seen = 0
+        self.totals = {}
+
+    def on_batch_end(self, batch, logs={}):
+        batch_size = logs.get('size', 0)
+        self.seen += batch_size
+
+        for k, v in logs.items():
+            if k in self.totals:
+                self.totals[k] += v * batch_size
+            else:
+                self.totals[k] = v * batch_size
+
+    def on_epoch_end(self, epoch, logs={}):
+        for k in self.params['metrics']:
+            if k in self.totals:
+                # make value available to next callbacks
+                logs[k] = self.totals[k] / self.seen
+
+
+class ProgbarLogger(Callback):
+    '''Callback that prints metrics to stdout.
     '''
     def on_train_begin(self, logs={}):
         self.verbose = self.params['verbose']
@@ -140,7 +170,6 @@ class BaseLogger(Callback):
             self.progbar = Progbar(target=self.params['nb_sample'],
                                    verbose=self.verbose)
         self.seen = 0
-        self.totals = {}
 
     def on_batch_begin(self, batch, logs={}):
         if self.seen < self.params['nb_sample']:
@@ -150,11 +179,6 @@ class BaseLogger(Callback):
         batch_size = logs.get('size', 0)
         self.seen += batch_size
 
-        for k, v in logs.items():
-            if k in self.totals:
-                self.totals[k] += v * batch_size
-            else:
-                self.totals[k] = v * batch_size
         for k in self.params['metrics']:
             if k in logs:
                 self.log_values.append((k, logs[k]))
@@ -166,8 +190,6 @@ class BaseLogger(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         for k in self.params['metrics']:
-            if k in self.totals:
-                self.log_values.append((k, self.totals[k] / self.seen))
             if k in logs:
                 self.log_values.append((k, logs[k]))
         if self.verbose:
@@ -186,26 +208,8 @@ class History(Callback):
         self.epoch = []
         self.history = {}
 
-    def on_epoch_begin(self, epoch, logs={}):
-        self.seen = 0
-        self.totals = {}
-
-    def on_batch_end(self, batch, logs={}):
-        batch_size = logs.get('size', 0)
-        self.seen += batch_size
-        for k, v in logs.items():
-            if k in self.totals:
-                self.totals[k] += v * batch_size
-            else:
-                self.totals[k] = v * batch_size
-
     def on_epoch_end(self, epoch, logs={}):
         self.epoch.append(epoch)
-        for k, v in self.totals.items():
-            if k not in self.history:
-                self.history[k] = []
-            self.history[k].append(v / self.seen)
-
         for k, v in logs.items():
             if k not in self.history:
                 self.history[k] = []
@@ -251,7 +255,8 @@ class ModelCheckpoint(Callback):
 
         if mode not in ['auto', 'min', 'max']:
             warnings.warn('ModelCheckpoint mode %s is unknown, '
-                          'fallback to auto mode' % (self.mode), RuntimeWarning)
+                          'fallback to auto mode.' % (self.mode),
+                          RuntimeWarning)
             mode = 'auto'
 
         if mode == 'min':
@@ -278,7 +283,8 @@ class ModelCheckpoint(Callback):
             else:
                 if self.monitor_op(current, self.best):
                     if self.verbose > 0:
-                        print('Epoch %05d: %s improved from %0.5f to %0.5f, saving model to %s'
+                        print('Epoch %05d: %s improved from %0.5f to %0.5f,'
+                              ' saving model to %s'
                               % (epoch, self.monitor, self.best,
                                  current, filepath))
                     self.best = current
@@ -301,15 +307,38 @@ class EarlyStopping(Callback):
         patience: number of epochs with no improvement
             after which training will be stopped.
         verbose: verbosity mode.
+        mode: one of {auto, min, max}. In 'min' mode,
+            training will stop when the quantity
+            monitored has stopped decreasing; in 'max'
+            mode it will stop when the quantity
+            monitored has stopped increasing.
     '''
-    def __init__(self, monitor='val_loss', patience=0, verbose=0):
+    def __init__(self, monitor='val_loss', patience=0, verbose=0, mode='auto'):
         super(Callback, self).__init__()
 
         self.monitor = monitor
         self.patience = patience
         self.verbose = verbose
-        self.best = np.Inf
         self.wait = 0
+
+        if mode not in ['auto', 'min', 'max']:
+            warnings.warn('EarlyStopping mode %s is unknown, '
+                          'fallback to auto mode.' % (self.mode), RuntimeWarning)
+            mode = 'auto'
+
+        if mode == 'min':
+            self.monitor_op = np.less
+            self.best = np.Inf
+        elif mode == 'max':
+            self.monitor_op = np.greater
+            self.best = -np.Inf
+        else:
+            if 'acc' in self.monitor:
+                self.monitor_op = np.greater
+                self.best = -np.Inf
+            else:
+                self.monitor_op = np.less
+                self.best = np.Inf
 
     def on_epoch_end(self, epoch, logs={}):
         current = logs.get(self.monitor)
@@ -317,7 +346,7 @@ class EarlyStopping(Callback):
             warnings.warn('Early stopping requires %s available!' %
                           (self.monitor), RuntimeWarning)
 
-        if current < self.best:
+        if self.monitor_op(current, self.best):
             self.best = current
             self.wait = 0
         else:
@@ -329,33 +358,24 @@ class EarlyStopping(Callback):
 
 
 class RemoteMonitor(Callback):
-    '''Experimental callback used to stream events to a server.
+    '''Callback used to stream events to a server.
 
     Requires the `requests` library.
+
+    # Arguments
+        root: root url to which the events will be sent (at the end
+            of every epoch). Events are sent to
+            `root + '/publish/epoch/end/'`. Calls are HTTP POST,
+            with a `data` argument which is a JSON-encoded dictionary
+            of event data.
     '''
     def __init__(self, root='http://localhost:9000'):
         self.root = root
-
-    def on_epoch_begin(self, epoch, logs={}):
-        self.seen = 0
-        self.totals = {}
-
-    def on_batch_end(self, batch, logs={}):
-        batch_size = logs.get('size', 0)
-        self.seen += batch_size
-        for k, v in logs.items():
-            if k in self.totals:
-                self.totals[k] += v * batch_size
-            else:
-                self.totals[k] = v * batch_size
 
     def on_epoch_end(self, epoch, logs={}):
         import requests
         send = {}
         send['epoch'] = epoch
-
-        for k, v in self.totals.items():
-            send[k] = v / self.seen
         for k, v in logs.items():
             send[k] = v
 
@@ -371,13 +391,105 @@ class LearningRateScheduler(Callback):
     '''Learning rate scheduler.
 
     # Arguments
-        schedule: a function that gets an epoch index as input
+        schedule: a function that takes an epoch index as input
             (integer, indexed from 0) and returns a new
-            learning rate as output.
+            learning rate as output (float).
     '''
     def __init__(self, schedule):
         super(LearningRateScheduler, self).__init__()
         self.schedule = schedule
 
     def on_epoch_begin(self, epoch, logs={}):
-        self.model.optimizer.lr.set_value(self.schedule(epoch))
+        assert hasattr(self.model.optimizer, 'lr'), \
+            'Optimizer must have a "lr" attribute.'
+        lr = self.schedule(epoch)
+        assert type(lr) == float, 'The output of the "schedule" function should be float.'
+        K.set_value(self.model.optimizer.lr, lr)
+
+
+class TensorBoard(Callback):
+    ''' Tensorboard basic visualizations.
+
+    This callback writes a log for TensorBoard, which allows
+    you to visualize dynamic graphs of your training and test
+    metrics, as well as activation histograms for the different
+    layers in your model.
+
+    TensorBoard is a visualization tool provided with TensorFlow.
+
+    If you have installed TensorFlow with pip, you should be able
+    to launch TensorBoard from the command line:
+    ```
+    tensorboard --logdir=/full_path_to_your_logs
+    ```
+    You can find more information about TensorBoard
+    [here](https://www.tensorflow.org/versions/master/how_tos/summaries_and_tensorboard/index.html).
+
+    # Arguments
+        log_dir: the path of the directory where to save the log
+            files to be parsed by tensorboard
+        histogram_freq: frequency (in epochs) at which to compute activation
+            histograms for the layers of the model. If set to 0,
+            histograms won't be computed.
+    '''
+    def __init__(self, log_dir='./logs', histogram_freq=0):
+        super(Callback, self).__init__()
+        if K._BACKEND != 'tensorflow':
+            raise Exception('TensorBoard callback only works '
+                            'with the TensorFlow backend.')
+        self.log_dir = log_dir
+        self.histogram_freq = histogram_freq
+        self.merged = None
+
+    def _set_model(self, model):
+        import tensorflow as tf
+        import keras.backend.tensorflow_backend as KTF
+
+        self.model = model
+        self.sess = KTF._get_session()
+        if self.histogram_freq and not self.merged:
+            mod_type = self.model.get_config()['name']
+            if mod_type == 'Sequential':
+                layers = {l.get_config()['name']: l for l in self.model.layers}
+            elif mod_type == 'Graph':
+                layers = self.model.nodes
+            else:
+                raise Exception('Unrecognized model:',
+                                self.model.get_config()['name'])
+            for l in layers:
+                cur_layer = layers[l]
+                if hasattr(cur_layer, 'W'):
+                    tf.histogram_summary('{}_W'.format(l), cur_layer.W)
+                if hasattr(cur_layer, 'b'):
+                    tf.histogram_summary('{}_b'.format(l), cur_layer.b)
+                if hasattr(cur_layer, 'get_output'):
+                    tf.histogram_summary('{}_out'.format(l),
+                                         cur_layer.get_output())
+        self.merged = tf.merge_all_summaries()
+        self.writer = tf.train.SummaryWriter(self.log_dir,
+                                             self.sess.graph_def)
+
+    def on_epoch_end(self, epoch, logs={}):
+        import tensorflow as tf
+
+        if self.model.validation_data and self.histogram_freq:
+            if epoch % self.histogram_freq == 0:
+                if self.params.get('show_accuracy'):
+                    test_function = self.model._test_with_acc
+                else:
+                    test_function = self.model._test
+                names = [v.name for v in test_function.inputs]
+                feed_dict = dict(zip(names, self.model.validation_data))
+                result = self.sess.run([self.merged], feed_dict=feed_dict)
+                summary_str = result[0]
+                self.writer.add_summary(summary_str, epoch)
+
+        for name, value in logs.items():
+            if name in ['batch', 'size']:
+                continue
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.simple_value = value
+            summary_value.tag = name
+            self.writer.add_summary(summary, epoch)
+        self.writer.flush()

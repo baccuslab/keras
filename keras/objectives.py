@@ -7,10 +7,6 @@ def mean_squared_error(y_true, y_pred):
     return K.mean(K.square(y_pred - y_true), axis=-1)
 
 
-def root_mean_squared_error(y_true, y_pred):
-    return K.sqrt(K.mean(K.square(y_pred - y_true), axis=-1))
-
-
 def mean_absolute_error(y_true, y_pred):
     return K.mean(K.abs(y_pred - y_true), axis=-1)
 
@@ -35,29 +31,36 @@ def hinge(y_true, y_pred):
 
 
 def categorical_crossentropy(y_true, y_pred):
-    '''Expects a binary class matrix instead of a vector of scalar classes
+    '''Expects a binary class matrix instead of a vector of scalar classes.
     '''
-    return K.mean(K.categorical_crossentropy(y_pred, y_true), axis=-1)
+    return K.categorical_crossentropy(y_pred, y_true)
 
 
 def binary_crossentropy(y_true, y_pred):
     return K.mean(K.binary_crossentropy(y_pred, y_true), axis=-1)
 
 
-def poisson_loss(y_true, y_pred):
+def poisson(y_true, y_pred):
     return K.mean(y_pred - y_true * K.log(y_pred + K.epsilon()), axis=-1)
 
+
 def sub_poisson_loss(y_true, y_pred):
-    poiss = poisson_loss(y_true, y_pred)
+    poiss = poisson(y_true, y_pred)
     mse = mean_squared_error(y_true, y_pred)
-    return poiss + 0.05*mse
+    return poiss + 0.05 * mse
+
+
+def cosine_proximity(y_true, y_pred):
+    y_true = K.l2_normalize(y_true, axis=-1)
+    y_pred = K.l2_normalize(y_pred, axis=-1)
+    return -K.mean(y_true * y_pred, axis=-1)
 
 # aliases
 mse = MSE = mean_squared_error
-rmse = RMSE = root_mean_squared_error
 mae = MAE = mean_absolute_error
 mape = MAPE = mean_absolute_percentage_error
 msle = MSLE = mean_squared_logarithmic_error
+cosine = cosine_proximity
 
 from .utils.generic_utils import get_from_module
 def get(identifier):

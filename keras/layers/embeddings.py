@@ -8,10 +8,10 @@ from ..constraints import unitnorm
 
 
 class Embedding(Layer):
-    '''Turn positive integers (indexes) into denses vectors of fixed size.
+    '''Turn positive integers (indexes) into dense vectors of fixed size.
     eg. [[4], [20]] -> [[0.25, 0.1], [0.6, -0.2]]
 
-    This layer can only be used as the first layer in  a model.
+    This layer can only be used as the first layer in a model.
 
     # Input shape
         2D tensor with shape: `(nb_samples, sequence_length)`.
@@ -38,7 +38,7 @@ class Embedding(Layer):
           This is useful for [recurrent layers](recurrent.md) which may take
           variable length input. If this is `True` then all subsequent layers
           in the model need to support masking or an exception will be raised.
-      input_length: Length of input sequences, when it is constantself.
+      input_length: Length of input sequences, when it is constant.
           This argument is required if you are going to connect
           `Flatten` then `Dense` layers upstream
           (without it, the shape of the dense outputs cannot be computed).
@@ -71,7 +71,7 @@ class Embedding(Layer):
         self.input = K.placeholder(shape=(self.input_shape[0], self.input_length),
                                    dtype='int32')
         self.W = self.init((self.input_dim, self.output_dim))
-        self.params = [self.W]
+        self.trainable_weights = [self.W]
         self.regularizers = []
         if self.W_regularizer:
             self.W_regularizer.set_param(self.W)
@@ -89,9 +89,7 @@ class Embedding(Layer):
         if not self.mask_zero:
             return None
         else:
-            if K._BACKEND == "tensorflow":
-                raise Exception("Masking is Theano-only for the time being.")
-            return K.ones_like(X) * (1 - K.equal(X, 0))
+            return K.not_equal(X, 0)
 
     @property
     def output_shape(self):
