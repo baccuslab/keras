@@ -61,6 +61,7 @@ mae = MAE = mean_absolute_error
 mape = MAPE = mean_absolute_percentage_error
 msle = MSLE = mean_squared_logarithmic_error
 cosine = cosine_proximity
+poisson_loss = poisson
 
 from .utils.generic_utils import get_from_module
 def get(identifier):
