@@ -255,7 +255,7 @@ class ModelCheckpoint(Callback):
 
         if mode not in ['auto', 'min', 'max']:
             warnings.warn('ModelCheckpoint mode %s is unknown, '
-                          'fallback to auto mode.' % (self.mode),
+                          'fallback to auto mode.' % (mode),
                           RuntimeWarning)
             mode = 'auto'
 
@@ -479,6 +479,8 @@ class TensorBoard(Callback):
                 else:
                     test_function = self.model._test
                 names = [v.name for v in test_function.inputs]
+                # TODO: implement batched calls to sess.run
+                # (current call will likely go OOM on GPU)
                 feed_dict = dict(zip(names, self.model.validation_data))
                 result = self.sess.run([self.merged], feed_dict=feed_dict)
                 summary_str = result[0]
