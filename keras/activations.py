@@ -41,6 +41,19 @@ def linear(x):
     '''
     return x
 
+def exp(x):
+    '''
+    Non-parameterized exponential.
+    '''
+    return K.exp(x)
+
+def requ(x):
+    '''
+    Rectified quadratic activation.
+    '''
+    return K.sqr(relu(x))
+    
+
 
 from .utils.generic_utils import get_from_module
 def get(identifier):
