@@ -51,7 +51,7 @@ def requ(x):
     '''
     Rectified quadratic activation.
     '''
-    return K.sqr(relu(x))
+    return K.T.sqr(relu(x))
     
 
 
