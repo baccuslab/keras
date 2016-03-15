@@ -55,6 +55,19 @@ def cosine_proximity(y_true, y_pred):
     y_pred = K.l2_normalize(y_pred, axis=-1)
     return -K.mean(y_true * y_pred, axis=-1)
 
+def entropy(y_true, y_pred):
+    '''
+        Ignore y_true and just return the negative entropy
+        of y_pred, subject to some variance constraint.
+    '''
+    C = 0.1
+    count, bins = K.hist(r)
+    count_normalized = count/K.sum(count)
+    entropy = K.sum([p * K.log(p) for p in count_normalized])
+    var = K.var(y_pred)
+    return -K.mean(entropy - (var - C))
+
+
 # aliases
 mse = MSE = mean_squared_error
 mae = MAE = mean_absolute_error
