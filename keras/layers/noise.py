@@ -29,7 +29,7 @@ class GaussianNoise(MaskedLayer):
 
     def get_output(self, train=False):
         X = self.get_input(train)
-        if not train or self.sigma == 0:
+        if self.sigma == 0:
             return X
         else:
             return X + K.random_normal(shape=K.shape(X),
@@ -61,11 +61,10 @@ class GaussianDropout(MaskedLayer):
 
     def get_output(self, train):
         X = self.get_input(train)
-        if train:
-            # self.p refers to drop probability rather than
-            # retain probability (as in paper), for consistency
-            X *= K.random_normal(shape=K.shape(X), mean=1.0,
-                                 std=K.sqrt(self.p / (1.0 - self.p)))
+        # self.p refers to drop probability rather than
+        # retain probability (as in paper), for consistency
+        X *= K.random_normal(shape=K.shape(X), mean=1.0,
+                             std=K.sqrt(self.p / (1.0 - self.p)))
         return X
 
     def get_config(self):

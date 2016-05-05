@@ -715,8 +715,8 @@ class Dropout(MaskedLayer):
     def get_output(self, train=False):
         X = self.get_input(train)
         if self.p > 0.:
-            if train:
-                X = K.dropout(X, level=self.p)
+            #if train:
+            X = K.dropout(X, level=self.p)
         return X
 
     def get_config(self):
