@@ -42,6 +42,10 @@ def binary_crossentropy(y_true, y_pred):
 
 def poisson(y_true, y_pred):
     return K.mean(y_pred - y_true * K.log(y_pred + K.epsilon()), axis=-1)
+    
+
+def scaled_poisson_loss(y_true, y_pred, dt=10.0):
+    return K.mean(dt*y_pred - dt*y_true * K.log(dt*y_pred + K.epsilon()), axis=-1)
 
 
 def sub_poisson_loss(y_true, y_pred):
